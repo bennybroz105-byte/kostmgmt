@@ -1,0 +1,27 @@
+boarding_house_api/
+├── app/
+│   ├── __init__.py
+│   ├── main.py              # FastAPI application entry point
+│   ├── config.py            # Configuration settings
+│   ├── database.py          # Database connection management
+│   ├── auth/
+│   │   ├── __init__.py
+│   │   ├── dependencies.py  # Auth dependencies (JWT, user validation)
+│   │   └── utils.py        # Auth utility functions
+│   ├── api/
+│   │   ├── __init__.py
+│   │   ├── rooms.py        # Room-related endpoints
+│   │   ├── contracts.py    # Contract-related endpoints
+│   │   └── payments.py     # Payment-related endpoints
+│   ├── services/
+│   │   ├── __init__.py
+│   │   ├── rooms.py        # Room business logic
+│   │   ├── contracts.py    # Contract business logic
+│   │   └── payments.py     # Payment business logic
+│   └── sql/
+│       ├── __init__.py
+│       ├── rooms.py        # Room-related SQL queries
+│       ├── contracts.py    # Contract-related SQL queries
+│       └── payments.py     # Payment-related SQL queries
+├── static/                  # For serving Next.js static files
+└── requirements.txt
