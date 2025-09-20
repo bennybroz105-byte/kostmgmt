@@ -4,6 +4,7 @@
 -- Rooms table to track boarding house rooms
 CREATE TABLE rooms (
     id SERIAL PRIMARY KEY,
+    realm VARCHAR(253) NOT NULL, -- References the realm from the user
     room_number VARCHAR(20) NOT NULL,
     floor VARCHAR(10),
     status VARCHAR(20) NOT NULL DEFAULT 'available',
@@ -12,12 +13,13 @@ CREATE TABLE rooms (
     attributes JSONB, -- Store flexible room attributes (e.g., AC, furniture, etc)
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT unique_room_number UNIQUE(room_number)
+    CONSTRAINT unique_room_per_realm UNIQUE(realm, room_number)
 );
 
 -- Contract table to store rental agreements
 CREATE TABLE contracts (
     id SERIAL PRIMARY KEY,
+    realm VARCHAR(253) NOT NULL,
     contract_number VARCHAR(50) NOT NULL,
     room_id INTEGER NOT NULL,
     tenant_username VARCHAR(64) NOT NULL, -- References radusergroup.username
@@ -30,12 +32,13 @@ CREATE TABLE contracts (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_room FOREIGN KEY(room_id) REFERENCES rooms(id),
     CONSTRAINT fk_tenant FOREIGN KEY(tenant_username) REFERENCES radusergroup(username),
-    CONSTRAINT unique_contract_number UNIQUE(contract_number)
+    CONSTRAINT unique_contract_per_realm UNIQUE(realm, contract_number)
 );
 
 -- Payments table to track rent payments
 CREATE TABLE payments (
     id SERIAL PRIMARY KEY,
+    realm VARCHAR(253) NOT NULL,
     contract_id INTEGER NOT NULL,
     payment_number VARCHAR(50) NOT NULL,
     amount DECIMAL(10,2) NOT NULL,
@@ -46,15 +49,18 @@ CREATE TABLE payments (
     created_by VARCHAR(64) NOT NULL, -- References manager's username
     CONSTRAINT fk_contract FOREIGN KEY(contract_id) REFERENCES contracts(id),
     CONSTRAINT fk_created_by FOREIGN KEY(created_by) REFERENCES radusergroup(username),
-    CONSTRAINT unique_payment_number UNIQUE(payment_number)
+    CONSTRAINT unique_payment_per_realm UNIQUE(realm, payment_number)
 );
 
 -- Create indexes for better query performance
 CREATE INDEX idx_rooms_status ON rooms(status);
+CREATE INDEX idx_rooms_realm ON rooms(realm);
 CREATE INDEX idx_contracts_tenant ON contracts(tenant_username);
+CREATE INDEX idx_contracts_realm ON contracts(realm);
 CREATE INDEX idx_contracts_dates ON contracts(start_date, end_date);
 CREATE INDEX idx_payments_contract ON payments(contract_id);
 CREATE INDEX idx_payments_date ON payments(payment_date);
+CREATE INDEX idx_payments_realm ON payments(realm);
 
 -- Insert default user groups into radgroupcheck for role management
 INSERT INTO radgroupcheck (groupname, attribute, op, value) VALUES

@@ -39,4 +39,12 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
         if user is None:
             raise credentials_exception
             
-        return dict(user)
+        user_data = dict(user)
+
+        # Add realm to user data for multi-tenancy
+        if '@' in user_data['username']:
+            user_data['realm'] = user_data['username'].split('@', 1)[1]
+        else:
+            user_data['realm'] = None # Or a default realm
+
+        return user_data

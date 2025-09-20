@@ -3,7 +3,12 @@ from pydantic import BaseModel
 from datetime import date
 from ..database import get_db_connection
 from ..auth.dependencies import get_current_user
-from ..sql.contracts import CREATE_CONTRACT, GET_CONTRACT_WITH_PAYMENTS
+from ..sql.contracts import (
+    CREATE_CONTRACT,
+    GET_CONTRACT_WITH_PAYMENTS,
+    GET_ALL_CONTRACTS_BY_REALM,
+    GET_ACTIVE_CONTRACT_BY_TENANT
+)
 
 router = APIRouter(prefix="/contracts", tags=["contracts"])
 
@@ -20,10 +25,11 @@ async def create_contract(
     contract: ContractCreate,
     current_user: dict = Depends(get_current_user)
 ):
-    if current_user["role"] != "boarding_managers":
+    realm = current_user.get("realm")
+    if current_user.get("role") != "boarding_managers" or not realm:
         raise HTTPException(
             status_code=403,
-            detail="Only managers can create contracts"
+            detail="Only managers of a realm can create contracts."
         )
         
     async with get_db_connection() as conn:
@@ -32,6 +38,7 @@ async def create_contract(
         
         contract_id = await conn.fetchval(
             CREATE_CONTRACT,
+            realm,
             contract_number,
             contract.room_id,
             contract.tenant_username,
@@ -50,13 +57,17 @@ async def create_contract(
         
         return {"id": contract_id, "contract_number": contract_number}
 
-@router.get("/{contract_id}/receipt")
-async def get_contract_receipt(
+@router.get("/{contract_id}")
+async def get_contract(
     contract_id: int,
     current_user: dict = Depends(get_current_user)
 ):
+    realm = current_user.get("realm")
+    if not realm:
+        raise HTTPException(status_code=403, detail="User not associated with a realm.")
+
     async with get_db_connection() as conn:
-        contract = await conn.fetchrow(GET_CONTRACT_WITH_PAYMENTS, contract_id)
+        contract = await conn.fetchrow(GET_CONTRACT_WITH_PAYMENTS, contract_id, realm)
         
         if not contract:
             raise HTTPException(status_code=404, detail="Contract not found")
@@ -68,4 +79,31 @@ async def get_contract_receipt(
             
         # Here you would generate the receipt (HTML or PDF)
         # For now, just return the contract data
+        return dict(contract)
+
+@router.get("/")
+async def get_all_contracts(current_user: dict = Depends(get_current_user)):
+    realm = current_user.get("realm")
+    if current_user.get("role") != "boarding_managers" or not realm:
+        raise HTTPException(
+            status_code=403,
+            detail="Only managers of a realm can view all contracts."
+        )
+
+    async with get_db_connection() as conn:
+        contracts = await conn.fetch(GET_ALL_CONTRACTS_BY_REALM, realm)
+        return [dict(contract) for contract in contracts]
+
+@router.get("/my/active")
+async def get_my_active_contract(current_user: dict = Depends(get_current_user)):
+    realm = current_user.get("realm")
+    username = current_user.get("username")
+
+    if not realm or not username:
+        raise HTTPException(status_code=403, detail="Invalid user.")
+
+    async with get_db_connection() as conn:
+        contract = await conn.fetchrow(GET_ACTIVE_CONTRACT_BY_TENANT, username, realm)
+        if not contract:
+            raise HTTPException(status_code=404, detail="No active contract found.")
         return dict(contract)
