@@ -45,6 +45,14 @@ async def upload_payment_proof(
         file.file.close()
 
     async with get_db_connection() as conn:
+        # Verify the contract exists and belongs to the tenant's realm
+        contract = await conn.fetchrow(
+            "SELECT id FROM contracts WHERE id = $1 AND realm = $2 AND tenant_username = $3",
+            contract_id, realm, username
+        )
+        if not contract:
+            raise HTTPException(status_code=404, detail="Contract not found for this user and realm.")
+
         payment_number = f"PAY-{timestamp}-{contract_id}"
         payment_id = await conn.fetchval(
             CREATE_PAYMENT,

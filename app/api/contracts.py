@@ -33,6 +33,11 @@ async def create_contract(
         )
         
     async with get_db_connection() as conn:
+        # Verify the room exists and belongs to the manager's realm
+        room = await conn.fetchrow("SELECT id FROM rooms WHERE id = $1 AND realm = $2", contract.room_id, realm)
+        if not room:
+            raise HTTPException(status_code=404, detail="Room not found in this realm.")
+
         # Generate contract number (you might want to implement a better system)
         contract_number = f"CONT-{date.today().strftime('%Y%m%d')}-{contract.room_id}"
         
@@ -52,8 +57,8 @@ async def create_contract(
         await conn.execute("""
             UPDATE rooms 
             SET status = 'occupied' 
-            WHERE id = $1
-        """, contract.room_id)
+            WHERE id = $1 AND realm = $2
+        """, contract.room_id, realm)
         
         return {"id": contract_id, "contract_number": contract_number}
 

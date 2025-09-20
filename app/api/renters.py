@@ -1,3 +1,4 @@
+import hashlib
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
@@ -30,11 +31,17 @@ async def create_renter(
             detail=f"New renter username must belong to the manager's realm ('{realm}')."
         )
 
+    # Hash the password
+    h = hashlib.sha256()
+    h.update(renter.password.encode('utf-8'))
+    hashed_password = h.hexdigest()
+    db_password_value = f"{{crypt-sha256}}{hashed_password}"
+
     async with get_db_connection() as conn:
         async with conn.transaction():
             try:
                 # Create user password
-                await conn.execute(CREATE_RADCHECK_USER, renter.username, renter.password)
+                await conn.execute(CREATE_RADCHECK_USER, renter.username, db_password_value)
                 # Assign user to tenant group
                 await conn.execute(CREATE_RADUSERGROUP_USER, renter.username)
             except Exception as e:

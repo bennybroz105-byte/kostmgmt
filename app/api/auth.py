@@ -9,14 +9,38 @@ from ..config import get_settings
 router = APIRouter(tags=["auth"])
 settings = get_settings()
 
+import hashlib
+
 async def verify_password(plain_password: str, username: str, conn) -> bool:
-    # This is a simplified check. In a real scenario, you'd handle hashed passwords.
-    # FreeRADIUS can use many password schemes. We assume Cleartext-Password for now.
-    stored_password = await conn.fetchval(
-        "SELECT value FROM radcheck WHERE username = $1 AND attribute = 'Cleartext-Password'",
+    stored_password_record = await conn.fetchrow(
+        "SELECT value, attribute FROM radcheck WHERE username = $1 AND (attribute = 'Cleartext-Password' OR attribute = 'Password-With-Header')",
         username
     )
-    return stored_password is not None and stored_password == plain_password
+
+    if not stored_password_record:
+        return False
+
+    stored_value = stored_password_record['value']
+    attribute = stored_password_record['attribute']
+
+    if attribute == 'Cleartext-Password':
+        return stored_value == plain_password
+
+    if attribute == 'Password-With-Header':
+        if not stored_value.startswith('{crypt-sha256}'):
+            # Unsupported hash format
+            return False
+
+        stored_hash = stored_value.replace('{crypt-sha256}', '')
+
+        # Hash the provided plain password with SHA-256
+        h = hashlib.sha256()
+        h.update(plain_password.encode('utf-8'))
+        provided_hash = h.hexdigest()
+
+        return provided_hash == stored_hash
+
+    return False
 
 def create_access_token(data: dict, expires_delta: timedelta | None = None):
     to_encode = data.copy()

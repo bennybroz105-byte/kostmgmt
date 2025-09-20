@@ -1,6 +1,6 @@
 CREATE_RADCHECK_USER = """
     INSERT INTO radcheck (username, attribute, op, value)
-    VALUES ($1, 'Cleartext-Password', ':=', $2);
+    VALUES ($1, 'Password-With-Header', ':=', $2);
 """
 
 CREATE_RADUSERGROUP_USER = """
